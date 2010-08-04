@@ -1,0 +1,7 @@
+CL-MONGREL2 — Common Lisp client to Mongrel2 web-server
+
+h2. Dependencies
+
+* "rutils":http://github.com/vseloved/rutils
+* "zeromq":http://www.cliki.net/cl-zmq
+* "cl-json":http://common-lisp.net/project/cl-json
