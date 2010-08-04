@@ -8,7 +8,7 @@
        (let ((req (recv conn)))
          (reply conn req (format-http-response "abc" 200 :ok ()))))))
 
-;;; to install and run mongrel2 follow instructions in upto
+;;; to install and run mongrel2 follow instructions in http://mongrel2.org/doc/tip/docs/manual/book.wiki upto
 ;;; m2sh start -db tests/config.sqlite -host localhost
 ;;; then from lisp prompt run: (simple-test)
 ;;; then try several times from shell: curl -i http://localhost:6767/handlertest
