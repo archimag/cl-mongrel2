@@ -1,3 +1,29 @@
+(in-package :json)
+
+(rutils:eval-always
+
+  ;; yet unreleased JSON conversion function (from darcs)
+  (defun simplified-camel-case-to-lisp (camel-string)
+    "Insert - between lowercase and uppercase chars.
+Ignore _ + * and several consecutive uppercase."
+    (declare (string camel-string))
+    (let ((*print-pretty* nil))
+      (with-output-to-string (result)
+        (loop for c across camel-string
+           with last-was-lowercase
+           when (and last-was-lowercase
+                     (upper-case-p c))
+           do (princ "-" result)
+           if (lower-case-p c)
+           do (setf last-was-lowercase t)
+           else
+           do (setf last-was-lowercase nil)
+           do (princ (char-upcase c) result)))))
+
+  (export 'simplified-camel-case-to-lisp (find-package :json)))
+
+(in-package :cl-user)
+
 (rutils:eval-always
   (cl:defpackage :mongrel2
     (:use :common-lisp :rutils.usr)))
@@ -105,7 +131,9 @@
   (bind (((sender-uuid connection-id path &rest rest) (split-sequence #\Space
                                                                       msg))
          (raw-headers rest (parse-netstring (reduce #'strcat_ rest)))
-         (headers (flatten (json:decode-json-from-string raw-headers)))
+         (headers (let ((json:*json-identifier-name-to-lisp*
+                         #'json:simplified-camel-case-to-lisp))
+                    (flatten (json:decode-json-from-string raw-headers))))
          (body (parse-netstring rest)))
     (make-instance 'request
                    :sender-uuid sender-uuid
@@ -113,7 +141,7 @@
                    :path path
                    :headers headers
                    :body body
-                   :data (when (string= (getf headers :+method+) "JSON")
+                   :data (when (string= (getf headers :method) "JSON")
                            (flatten (json:decode-json-from-string body))))))
 
 (defmethod disconnected? (request)

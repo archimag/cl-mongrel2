@@ -8,7 +8,10 @@
   :maintainer "Vsevolod Dyomkin <vseloved@gmail.com>"
   :licence "MIT"
   :description "Lisp interface to mongrel2 web-server"
-  :depends-on (:rutils :cl-json :zeromq); :uuid)
+  :depends-on (:rutils
+               :cl-json
+               (:version :zeromq "0.1.1" :above)
+               #+nil :uuid)
   :components ((:file "mongrel2")))
 
 ;;; end
