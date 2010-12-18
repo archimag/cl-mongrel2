@@ -110,7 +110,7 @@ Ignore _ + * and several consecutive uppercase."
 (defmacro with-connection ((conn &rest init-args
                                  &key sender-uuid sub-addr pub-addr)
                            &body body)
-  (with-gensyms (ctx)
+  (with-gensyms (ctx req-socket resp-socket)
     `(let ((,conn (make-instance 'connection
                                  :sender-uuid ,sender-uuid
                                  ;;(print-object (uuid:make-v1-uuid) nil)
@@ -118,13 +118,13 @@ Ignore _ + * and several consecutive uppercase."
        (with-slots (sender-uuid sub-addr pub-addr)
            ,conn
          (zmq:with-context (,ctx 1)
-           (zmq:with-socket (req-socket ,ctx zmq:upstream)
-             (zmq:connect req-socket sub-addr)
-             (setf (connection-req-socket conn) req-socket)
-             (zmq:with-socket (resp-socket ,ctx zmq:pub)
-               (setf (connection-resp-socket conn) resp-socket)
-               (zmq:connect resp-socket pub-addr)
-               (zmq:setsockopt resp-socket zmq:identity sender-uuid)
+           (zmq:with-socket (,req-socket ,ctx zmq:upstream)
+             (zmq:connect ,req-socket sub-addr)
+             (setf (connection-req-socket ,conn) ,req-socket)
+             (zmq:with-socket (,resp-socket ,ctx zmq:pub)
+               (setf (connection-resp-socket ,conn) ,resp-socket)
+               (zmq:connect ,resp-socket pub-addr)
+               (zmq:setsockopt ,resp-socket zmq:identity sender-uuid)
                ,@body)))))))
 
 (defun parse-request (msg)
