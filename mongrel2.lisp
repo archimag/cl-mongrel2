@@ -133,7 +133,7 @@ Ignore _ + * and several consecutive uppercase."
          (raw-headers rest (parse-netstring (reduce #'strcat_ rest)))
          (headers (let ((json:*json-identifier-name-to-lisp*
                          #'json:simplified-camel-case-to-lisp))
-                    (flatten (json:decode-json-from-string raw-headers))))
+                    (json:decode-json-from-string raw-headers)))
          (body (parse-netstring rest)))
     (make-instance 'request
                    :sender-uuid sender-uuid
@@ -141,7 +141,7 @@ Ignore _ + * and several consecutive uppercase."
                    :path path
                    :headers headers
                    :body body
-                   :data (when (string= (getf headers :method) "JSON")
+                   :data (when (string= (cdr (assoc :method  headers)) "JSON")
                            (flatten (json:decode-json-from-string body))))))
 
 (defmethod disconnected? (request)
