@@ -151,7 +151,7 @@ Ignore _ + * and several consecutive uppercase."
 (defun format-http-response (body code status headers)
   (with-output-to-string (resp-stream)
     (fmt-crlf resp-stream "HTTP/1.1 ~A ~A" code status)
-    (fmt-crlf resp-stream "Content-length: ~A" (1+ (length body)))
+    (fmt-crlf resp-stream "Content-Length: ~A" (length body))
     (loop :for (k v) :on headers :by #'cddr :do
        (fmt-crlf resp-stream "~:(~A~): ~A" k v))
     (fmt-crlf resp-stream "")
