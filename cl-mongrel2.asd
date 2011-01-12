@@ -1,5 +1,9 @@
-;;; CL-MONGREL2 system definition
-;;; (c) Vsevolod Dyomkin.  See LICENSE file for permissions
+;;;; CL-MONGREL2 system definition
+;;;;
+;;;; This file is part of the cl-mongrel library, released under BSD license.
+;;;; See file LICENSE for permissions.
+;;;;
+;;;; Authors: Vsevolod Dyomkin <vseloved@gmail.com>, Moskvitin Andrey <archimag@gmail.com>
 
 (in-package :asdf)
 
@@ -8,10 +12,12 @@
   :maintainer "Vsevolod Dyomkin <vseloved@gmail.com>"
   :licence "MIT"
   :description "Lisp interface to mongrel2 web-server"
-  :depends-on (:rutils
-               :cl-json
-               (:version :zeromq "0.1.1" :above)
+  :depends-on (#:iterate #:cl-json
+               (:version #:zeromq "0.1.1" :above)
                #+nil :uuid)
-  :components ((:file "mongrel2")))
-
+  :components ((:module "src"
+                        :components ((:file "packages")
+                                     (:file "request" :depends-on ("packages"))
+                                     (:file "reply" :depends-on ("packages"))
+                                     (:file "connection" :depends-on ("request" "reply"))))))
 ;;; end
