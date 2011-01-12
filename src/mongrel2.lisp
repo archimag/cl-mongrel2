@@ -1,5 +1,9 @@
-(defpackage #:mongrel2
-  (:use #:cl #:rutils.usr))
+;;;; mongrel2.lisp
+;;;;
+;;;; This file is part of the cl-mongrel library, released under BSD license.
+;;;; See file LICENSE for permissions.
+;;;;
+;;;; Authors: Vsevolod Dyomkin <vseloved@gmail.com>, Moskvitin Andrey <archimag@gmail.com>
 
 (in-package #:mongrel2)
 
@@ -23,6 +27,7 @@
                                         args))))
 
 (defun parse-netstring (str)
+  ;;(break str)
   (let* ((length-end (position #\: str))
          (length (parse-integer (subseq str 0 length-end)))
          (rest (subseq str (1+ length-end))))
