@@ -17,7 +17,7 @@
                #+nil :uuid)
   :components ((:module "src"
                         :components ((:file "packages")
-                                     (:file "request" :depends-on ("packages"))
-                                     (:file "reply" :depends-on ("packages"))
-                                     (:file "connection" :depends-on ("request" "reply"))))))
+                                     (:file "connection" :depends-on ("packages"))
+                                     (:file "request" :depends-on ("connection"))
+                                     (:file "reply" :depends-on ("connection"))))))
 ;;; end

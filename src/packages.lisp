@@ -7,6 +7,19 @@
 
 
 (defpackage #:mongrel2
-  (:use #:cl #:iter))
+  (:use #:cl #:iter)
+  (:export #:connection
+           #:with-connection
+           ;; request
+           #:request
+           #:headers-in
+           #:raw-post-data
+           #:recv
+           ;; reply
+           #:reply
+           #:headers-out
+           #:return-code
+           #:return-status
+           ))
 
 

@@ -51,24 +51,5 @@
                (zmq:setsockopt ,resp-socket zmq:identity sender-uuid)
                ,@body)))))))
 
-(defun recv (conn)
-  (let ((msg (make-instance 'zmq:msg)))
-    (zmq:recv (connection-req-socket conn) msg)
-    (make-instance 'request :msg msg)))
 
-(defun send (conn conn-id msg)
-  (fmt-mongrel conn "~A:~A, ~A" (length (princ-to-string conn-id)) conn-id msg))
-
-(defmethod reply (conn req msg)
-  (send conn (connection-id req) msg))
-
-;; (defmethod deliver (conn conn-ids msg)
-;;   (fmt-mongrel conn "~A:~{~A~}, ~A"
-;;                (reduce #'+ (mapcar (lambda (str)
-;;                                      (length (princ-to-string str)))
-;;                                    conn-ids)
-;;                        :initial-value (1- (length conn-ids)))
-;;                (fmt "~A " conn-ids) msg))
-
-;;; end
 
