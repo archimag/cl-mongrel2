@@ -12,12 +12,11 @@
   :maintainer "Vsevolod Dyomkin <vseloved@gmail.com>"
   :licence "MIT"
   :description "Lisp interface to mongrel2 web-server"
-  :depends-on (#:iterate #:cl-json
-               (:version #:zeromq "0.1.1" :above)
-               #+nil :uuid)
+  :depends-on (#:iterate #:cl-json #:zeromq #:sqlite #:closer-mop #:cl-ppcre)
   :components ((:module "src"
                         :components ((:file "packages")
                                      (:file "connection" :depends-on ("packages"))
                                      (:file "request" :depends-on ("connection"))
-                                     (:file "reply" :depends-on ("connection"))))))
+                                     (:file "reply" :depends-on ("connection"))
+                                     (:file "config" :depends-on ("packages"))))))
 ;;; end
