@@ -7,6 +7,8 @@
 
 (in-package #:mongrel2)
 
+(deftype bool () '(member 0 1))
+
 (defclass server ()
   ((uuid :initarg :uuid :type string :reader uuid)
    (access-log :initarg :access-log :type string :reader access-log)
@@ -15,11 +17,12 @@
    (default-host :initarg :default-host :type string :reader default-host)
    (name :initarg :name :type string :reader :name)
    (pid-file :initarg :pid-file :type string :reader pid-file)
-   (port :initarg :port :type integer :reader port)))
+   (port :initarg :port :type integer :reader port)
+   (bind-addr :initarg :bind-addr :initform "0.0.0.0" :type string)))
 
 (defclass host ()
   ((server :initarg :server :initform nil :type server :reader server)
-   (maintenance :initarg :maintenance :initform 0 :type boolean :reader maintenance)
+   (maintenance :initarg :maintenance :initform 0 :type bool :reader maintenance)
    (name :initarg :name :type string :reader :name)
    (matching :initarg :matching :initform "" :type string :reader matching)))
 
@@ -27,12 +30,15 @@
   ((addr :initform :addr :type string)
    (port :initform :port :type integer)))
 
+
 (defclass dir ()
   ((base :initarg :base :type string)
    (index-file :initarg :index-file :type string)
    (default-ctype :initarg default-ctype :initform "text/plain" :type string)))
 
-(defclass target () ())
+
+
+(deftype target () '(or handler dir))
 
 (defclass handler ()
   ((send-spec :initarg :send-spec :initform "" :type string)
@@ -43,7 +49,7 @@
   
 (defclass route ()
   ((path :initarg :path :initform "")
-   (reversed :initarg :reversed :initform 0 :type boolean)
+   (reversed :initarg :reversed :initform 0 :type bool)
    (host :initarg :host :initform nil :type host)
    (target :initarg :target :initform nil :type target )
    (target-type :initarg :target-id :initform "handler" :type string)))
@@ -70,16 +76,25 @@
 (defmethod slot-sql-type ((slot symbol))
   (slot-sql-type (find-class slot)))
 
+(defmethod slot-sql-type ((slot (eql 'base-string)))
+  "TEXT")
+
 (defmethod slot-sql-type ((slot (eql 'string)))
   "TEXT")
 
 (defmethod slot-sql-type ((slot (eql 'boolean)))
   "BOOLEAN")
 
-(defmethod slot-sql-type ((class closer-mop:built-in-class))
+(defmethod slot-sql-type ((slot (eql 'bool)))
+  "BOOLEAN")
+
+(defmethod slot-sql-type ((class built-in-class))
   (symbol-name (class-name class)))
 
-(defmethod slot-sql-type ((class closer-mop:standard-class))
+(defmethod slot-sql-type ((class standard-class))
+  "INTEGER")
+
+(defmethod slot-sql-type ((class cons))
   "INTEGER")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -91,7 +106,7 @@
 (defmethod slot-sql-name ((slot closer-mop:slot-definition))
   (let ((name (closer-mop:slot-definition-name slot))
         (type (ignore-errors (find-class (closer-mop:slot-definition-type slot)))))
-    (if (and type (typep type 'closer-mop:standard-class))
+    (if (and type (typep type 'standard-class))
         (format nil "~A_id" (class-sql-table-name type))
         (slot-sql-name name))))
 
@@ -141,22 +156,25 @@
 (defgeneric slot-value-sql (slot value))
 
 (defmethod slot-value-sql (slot (value string))
+  (declare (ignore slot))
   (format nil "'~A'" value))
 
 (defmethod slot-value-sql (slot value)
-  (if (typep (class-of value) 'closer-mop:standard-class)
-      1
+  (declare (ignore slot))
+  (if (typep (class-of value) 'standard-class)
+      (progn value
+             1)
       value))
   
 (defmethod slot-value-sql (slot (value null))
+  (declare (ignore slot))
   "NULL")
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; insert-object
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric insert-object-sql (obj)
-  )
+(defgeneric insert-object-sql (obj))
 
 (defmethod insert-object-sql (obj)
   (let ((type (class-of obj)))
@@ -176,9 +194,9 @@
 (defun clear-db (db)
   (iter (for class in *classes*)
         (sqlite:execute-non-query db
-                                  (format nil
+                                  (print (format nil
                                           "DELETE FROM ~A"
-                                          (class-sql-table-name class)))))
+                                          (class-sql-table-name class))))))
 
 (defun create-tables (db)
   (iter (for class in *classes*)
@@ -186,38 +204,84 @@
                                         "select count(*) from sqlite_master where type='table' and name=?"
                                         (class-sql-table-name class))
                  0)
-          (sqlite:execute-non-query db (create-table-sql class)))))
+          (sqlite:execute-non-query db (print (create-table-sql class))))))
 
-(defun create-test-config (dir)
+(defun create-trivial-config (dir server-uuid send-ident &key  send-spec recv-spec (port 8080))
   (ensure-directories-exist dir)
   (ensure-directories-exist (merge-pathnames "run/" dir))
   (ensure-directories-exist (merge-pathnames "logs/" dir))
+
+  ;;(delete-file (merge-pathnames "config.sqlite" dir))
     
   (sqlite:with-open-database (db (merge-pathnames "config.sqlite" dir))
-    (create-tables db)
-    (clear-db db)
+    (create-tables db))
+
+  (sqlite:with-open-database (db (merge-pathnames "config.sqlite" dir))
+    (clear-db db))
     
+  (sqlite:with-open-database (db (merge-pathnames "config.sqlite" dir))
     (let* ((server (make-instance 'server
-                                  :uuid "82209006-86FF-4982-B5EA-D1E29E55D483"
+                                  :uuid server-uuid
                                   :access-log "/logs/access.log"
                                   :error-log "/logs/error.log"
-                                  :chroot (cffi-sys:native-namestring dir)
+                                  :chroot "./"
                                   :default-host "localhost"
                                   :name "test"
                                   :pid-file "/run/mongrel2.pid"
-                                  :port 6767))
+                                  :port port))
            (host (make-instance 'host
                                 :server server
                                 :name "localhost"))
            (handler (make-instance 'handler
-                                   :send-spec "tcp://127.0.0.1:9997"
-                                   :send-ident "34f9ceee-cd52-4b7f-b197-88bf2f0ec378"
-                                   :recv-spec "tcp://127.0.0.1:9996"
+                                   :send-spec send-spec
+                                   :send-ident send-ident
+                                   :recv-spec recv-spec
                                    :recv-ident ""))
            (route (make-instance 'route
                                  :path "/"
                                  :target handler
                                  :host host)))
       (iter (for obj in (list server host handler route))
-            (sqlite:execute-non-query db (insert-object-sql obj)))
-      )))
+            (sqlite:execute-non-query db (print (insert-object-sql obj)))))))
+
+
+
+(let (proc basedir)
+  (defun start-trivial-server (send-ident
+                               &key                               
+                               (dir #P"/tmp/mongrel2/")
+                               (port 8080)
+                               (send-spec "tcp://127.0.0.1:9997")
+                               (recv-spec "tcp://127.0.0.1:9996"))
+    (let ((server-uuid (write-to-string (uuid:make-v4-uuid))))
+      (setf basedir dir)
+      (create-trivial-config dir
+                             server-uuid
+                             send-ident
+                             :port port
+                             :send-spec send-spec
+                             :recv-spec recv-spec)
+      (setf proc
+            (popen:create-process (format nil "cd ~A && mongrel2 ~A ~A" dir "config.sqlite" server-uuid)))))
+
+  (defun server-process-pid ()
+    (parse-integer (alexandria:read-file-into-string (merge-pathnames "run/mongrel2.pid"
+                                                                      basedir))))
+  (defun stop-server (&key murder)
+    (popen:process-kill (make-instance 'popen::process
+                                       :pid (server-process-pid))
+                        (if murder 15 2))
+    (popen:process-wait proc)
+    (setf proc nil
+          basedir nil)))
+
+(defmacro with-trivial-server ((sender-uuid sub-addr pub-addr &key port) &body body)
+  `(unwind-protect
+       (progn
+         (start-trivial-server ,sender-uuid
+                               :send-spec ,sub-addr
+                               :recv-spec ,pub-addr
+                               :port ,port)
+         ,@body)
+     (stop-server)))
+     

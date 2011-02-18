@@ -20,6 +20,9 @@
            #:headers-out
            #:return-code
            #:return-status
+           ;;
+           #:start-trivial-server
+           #:stop-server
            ))
 
 
