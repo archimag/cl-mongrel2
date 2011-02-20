@@ -14,9 +14,10 @@
    (external-format :initform :utf-8 :accessor wsal:reply-external-format)))
 
 (defmethod initialize-instance :after ((reply reply) &key)
-  (setf (wsal:header-out :content-type reply) 
-        "text/html"))
-
+  (setf (wsal:header-out :cache-control reply) "no-cache, no-store"
+        (wsal:header-out :connection reply) "close"
+        (wsal:header-out :content-type reply) "text/html"))
+  
 (defmethod wsal:content-type ((reply reply))
   (wsal:header-out :content-type reply))
 
@@ -32,13 +33,15 @@
 (defparameter +crlf+
   (format nil "~C~C" #\Return #\Linefeed))
 
-(defun format-reply-string (reply &optional data)
+(defun format-reply-string (reply)
   (with-output-to-string (out)
     (format out
             "HTTP/1.1 ~A ~A"
             (wsal:return-code reply)
             (wsal:reason-phrase (wsal:return-code reply)))
+    
     (write-string +crlf+ out)
+    
     (iter (for (head . value) in (wsal:headers-out reply))
           (iter (for ch in-string (string head))
                 (for prev previous ch)
@@ -50,17 +53,29 @@
           (write-string ": " out)
           (format out "~A" value)
           (write-string +crlf+ out))
-    (write-string +crlf+ out)
-    (when data
-      (write-string data out))))
+    
+    (iter (for (nil . cookie) in (wsal:cookies-out reply))
+          (write-string "Set-Cookie: " out)
+          (write-string (wsal:stringify-cookie cookie) out)
+          (write-string +crlf+ out))
+    
+    (write-string +crlf+ out)))
+
+(defun send-end (connection request)
+  (zmq:send (connection-resp-socket connection)
+            (make-instance 'zmq:msg
+                           :data (format nil
+                                         "~A ~A:~A, "
+                                         (sender-uuid connection)
+                                         (length (connection-id request))
+                                         (connection-id request)))))  
 
 (defmethod reply (connection request (reply reply) (data string))
-  (setf (wsal:content-length* reply)
-        (length data))
-  (reply connection
-         request
-         nil
-         (format-reply-string reply data)))
+  (let ((octets (babel:string-to-octets data :encoding :utf-8)))
+    (setf (wsal:header-out :content-length)
+          (length octets))
+    (reply connection request reply nil)
+    (reply connection request nil octets)))
 
 (defmethod reply (connection request reply (octets vector))
   (check-type octets (vector (unsigned-byte 8)))
@@ -71,36 +86,28 @@
 
 (defmethod reply (connection request (reply null) (octets vector))
   (check-type octets (vector (unsigned-byte 8)))
-  (let ((bufsize 100))
-    (iter (for pos from 0 below (length octets) by bufsize)
-          (zmq:send (connection-resp-socket connection)
-                    (make-instance 'zmq:msg
-                                   :data (concatenate '(vector (unsigned-byte 8) *)
-                                                      (babel:string-to-octets (format nil
-                                                                                      "~A ~A:~A, "
-                                                                                      (sender-uuid connection)
-                                                                                      (length (connection-id request))
-                                                                                      (connection-id request))
-                                                                              :encoding :latin1)
-                                                      (subseq octets pos (min (+ pos bufsize)
-                                                                              (length octets)))))))))
+  (zmq:send (connection-resp-socket connection)
+            (make-instance 'zmq:msg
+                           :data (concatenate '(vector (unsigned-byte 8) *)
+                                              (babel:string-to-octets (format nil
+                                                                              "~A ~A:~A, "
+                                                                              (sender-uuid connection)
+                                                                              (length (connection-id request))
+                                                                              (connection-id request))
+                                                                      :encoding :latin1)
+                                              octets))))
 
 (defmethod reply (connection request (reply reply) (null null))
+  (setf (wsal:header-out :date reply)
+        (wsal:rfc-1123-date))
   (reply connection
          request
          nil
          (format-reply-string reply)))
 
-
 (defmethod reply (connection request (reply null) (data string))
-  (zmq:send (connection-resp-socket connection)
-            (make-instance 'zmq:msg
-                           :data (format nil
-                                         "~A ~A:~A, ~A"
-                                         (sender-uuid connection)
-                                         (length (connection-id request))
-                                         (connection-id request)
-                                         data))))
+  (reply connection request nil
+         (babel:string-to-octets data :encoding :utf-8)))
 
 (defmethod reply (connection request reply (file pathname))
   (let ((octets (alexandria:read-file-into-byte-vector file)))
