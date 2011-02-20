@@ -12,14 +12,9 @@
            #:with-connection
            ;; request
            #:request
-           #:headers-in
-           #:raw-post-data
            #:recv
            ;; reply
            #:reply
-           #:headers-out
-           #:return-code
-           #:return-status
            ;;
            #:start-trivial-server
            #:stop-server

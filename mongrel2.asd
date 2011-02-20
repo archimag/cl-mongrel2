@@ -7,12 +7,12 @@
 
 (in-package :asdf)
 
-(defsystem #:cl-mongrel2
+(defsystem #:mongrel2
   :version '(0 0 2)
   :maintainer "Vsevolod Dyomkin <vseloved@gmail.com>"
   :licence "MIT"
   :description "Lisp interface to mongrel2 web-server"
-  :depends-on (#:iterate #:cl-json #:zeromq #:sqlite #:closer-mop #:cl-ppcre #:uuid #:cl-popen)
+  :depends-on (#:iterate #:cl-json #:zeromq #:sqlite #:closer-mop #:cl-ppcre #:uuid #:cl-popen #:wsal)
   :components ((:module "src"
                         :components ((:file "packages")
                                      (:file "connection" :depends-on ("packages"))
