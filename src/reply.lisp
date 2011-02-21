@@ -72,7 +72,8 @@
                                            (connection-id request))))))
 
 (defmethod reply (connection request (reply reply) (data string))
-  (let ((octets (babel:string-to-octets data :encoding :utf-8)))
+  (let ((octets (babel:string-to-octets data
+                                        :encoding (wsal:reply-external-format reply))))
     (setf (wsal:header-out :content-length)
           (length octets))
     (reply connection request reply nil)
@@ -106,11 +107,8 @@
   (reply connection
          request
          nil
-         (format-reply-string request reply)))
-
-(defmethod reply (connection request (reply null) (data string))
-  (reply connection request nil
-         (babel:string-to-octets data :encoding :utf-8)))
+         (babel:string-to-octets (format-reply-string request reply)
+                                 :encoding (wsal:reply-external-format reply))))
 
 (defmethod reply (connection request reply (file pathname))
   (let ((octets (alexandria:read-file-into-byte-vector file)))
