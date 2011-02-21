@@ -13,6 +13,8 @@
            ;; request
            #:request
            #:recv
+           #:is-disconnect
+           #:should-close
            ;; reply
            #:reply
            ;;

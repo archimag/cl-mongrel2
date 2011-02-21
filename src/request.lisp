@@ -25,6 +25,16 @@
     (zmq:recv (connection-req-socket conn) msg)
     (make-instance 'request :msg msg)))
 
+(defun is-disconnect (request)
+  (string= (wsal:request-method request)
+           "JSON"))
+
+(defun should-close (request)
+  (or (string= (wsal:header-in :connection request)
+               "close")
+      (string= (wsal:header-in :version request)
+               "HTTP/1.0")))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; initialization
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,26 +103,7 @@
         
         ((string= type "multipart/form-data")
          (setf (slot-value request 'post-parameters)
-               (wsal:parse-multipart-form-data request :utf-8)))))
-    
-    ))
-
-(defun raw-post-data (request &key (encoding :utf-8))
-  (let ((raw (zmq:msg-data-as-is (request-msg request)))
-        (len (request-body-length request))
-        (offset (request-body-offset request)))
-    (if (eql encoding :binary)
-        (let ((arr (cffi:make-shareable-byte-vector len)))
-          (cffi:with-pointer-to-vector-data (ptr arr) 
-            (zmq::memcpy ptr 
-                         (cffi:make-pointer (+ (cffi:pointer-address raw)
-                                               offset))
-                         len))
-          arr)
-        (cffi:foreign-string-to-lisp raw
-                                     :offset offset
-                                     :count len
-                                     :encoding encoding))))
+               (wsal:parse-multipart-form-data request :utf-8)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; WSAL

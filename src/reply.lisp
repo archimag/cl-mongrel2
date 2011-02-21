@@ -14,9 +14,7 @@
    (external-format :initform :utf-8 :accessor wsal:reply-external-format)))
 
 (defmethod initialize-instance :after ((reply reply) &key)
-  (setf (wsal:header-out :cache-control reply) "no-cache, no-store"
-        (wsal:header-out :connection reply) "close"
-        (wsal:header-out :content-type reply) "text/html"))
+  (setf (wsal:header-out :content-type reply) "text/html"))
   
 (defmethod wsal:content-type ((reply reply))
   (wsal:header-out :content-type reply))
@@ -33,10 +31,12 @@
 (defparameter +crlf+
   (format nil "~C~C" #\Return #\Linefeed))
 
-(defun format-reply-string (reply)
+(defun format-reply-string (request reply)
   (with-output-to-string (out)
     (format out
-            "HTTP/1.1 ~A ~A"
+            "~A ~A ~A"
+            (or (wsal:header-in :version request)
+                "HTTP/1.1")
             (wsal:return-code reply)
             (wsal:reason-phrase (wsal:return-code reply)))
     
@@ -61,28 +61,31 @@
     
     (write-string +crlf+ out)))
 
-(defun send-end (connection request)
-  (zmq:send (connection-resp-socket connection)
-            (make-instance 'zmq:msg
-                           :data (format nil
-                                         "~A ~A:~A, "
-                                         (sender-uuid connection)
-                                         (length (connection-id request))
-                                         (connection-id request)))))  
+(defun maybe-send-close (connection request)
+  (when (should-close request)
+    (zmq:send (connection-resp-socket connection)
+              (make-instance 'zmq:msg
+                             :data (format nil
+                                           "~A ~A:~A, "
+                                           (sender-uuid connection)
+                                           (length (connection-id request))
+                                           (connection-id request))))))
 
 (defmethod reply (connection request (reply reply) (data string))
   (let ((octets (babel:string-to-octets data :encoding :utf-8)))
     (setf (wsal:header-out :content-length)
           (length octets))
     (reply connection request reply nil)
-    (reply connection request nil octets)))
+    (reply connection request nil octets)
+    (maybe-send-close connection request)))
 
 (defmethod reply (connection request reply (octets vector))
   (check-type octets (vector (unsigned-byte 8)))
   (setf (wsal:content-length* reply)
         (length octets))
   (reply connection request reply nil)
-  (reply connection request nil octets))
+  (reply connection request nil octets)
+  (maybe-send-close connection request))
 
 (defmethod reply (connection request (reply null) (octets vector))
   (check-type octets (vector (unsigned-byte 8)))
@@ -103,7 +106,7 @@
   (reply connection
          request
          nil
-         (format-reply-string reply)))
+         (format-reply-string request reply)))
 
 (defmethod reply (connection request (reply null) (data string))
   (reply connection request nil
